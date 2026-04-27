@@ -1,0 +1,35 @@
+# Dependencies
+node_modules/
+
+# Environment variables (VERY important for Express apps)
+.env
+*.env
+
+# Logs (Express apps often generate these)
+logs/
+*.log
+npm-debug.log*
+
+# Runtime / temp files
+pids/
+*.pid
+*.pid.lock
+
+# Uploads (if you use multer or similar)
+uploads/
+
+# Build output (only if you add TypeScript later)
+dist/
+build/
+
+# Test coverage
+coverage/
+
+# Cache
+.cache/
+
+# OS / editor junk
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
