@@ -2,6 +2,8 @@ import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
 import connectDB from "./src/config/db.js";
+import router from "./src/routes/authRoutes.js";
+import protect from "./src/middlewares/authMiddleware.js";
 
 dotenv.config();
 connectDB(); // ← connect to MongoDB on startup
@@ -10,6 +12,7 @@ const app = express();
 
 app.use(cors({ origin: "http://localhost:5173" }));
 app.use(express.json());
+app.use("/api/auth", router);
 
 app.get("/", (req, res) => {
   res.json({ message: "Server is running" });
