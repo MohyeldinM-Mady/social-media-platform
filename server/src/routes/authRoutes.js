@@ -1,46 +1,47 @@
-//imports
 import express from "express";
 import User from "../models/User.js";
-import jwt from "jsonwebtoken";
-import bcrypt from "bcryptjs";
 import * as TokenGenerator from "./TokenGenerator.js";
 
-//router
 const router = express.Router();
 
-//register
+const safeUser = (user) => ({
+  _id: user._id,
+  username: user.username,
+  email: user.email,
+  profilePicture: user.profilePicture,
+  bio: user.bio,
+  followers: user.followers,
+  following: user.following,
+});
+
+// POST /api/auth/register
 router.post("/register", async (req, res) => {
   try {
     const { username, email, password } = req.body;
-    const userExists = await User.findOne({ email });
-    if (userExists) {
-      return res.status(400).json({ message: "User already exists" });
-    }
-    const user = new User({ username, email, password });
-    await user.save();
+    if (!username || !email || !password)
+      return res.status(400).json({ message: "All fields are required" });
+    const exists = await User.findOne({ $or: [{ email }, { username }] });
+    if (exists) return res.status(400).json({ message: "Email or username already in use" });
+    const user = await new User({ username, email, password }).save();
     const token = TokenGenerator.generateToken(user);
-    res.status(201).json({ token });
-  } catch (error) {
-    res.status(500).json({ message: error.message });
+    res.status(201).json({ token, user: safeUser(user) });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
   }
 });
 
-//login
+// POST /api/auth/login
 router.post("/login", async (req, res) => {
   try {
     const { email, password } = req.body;
     const user = await User.findOne({ email });
-    if (!user) {
-      return res.status(400).json({ message: "Invalid credentials" });
-    }
-    const isMatch = await user.comparePassword(password);
-    if (!isMatch) {
-      return res.status(400).json({ message: "Invalid credentials" });
-    }
+    if (!user) return res.status(400).json({ message: "Invalid credentials" });
+    const match = await user.comparePassword(password);
+    if (!match) return res.status(400).json({ message: "Invalid credentials" });
     const token = TokenGenerator.generateToken(user);
-    res.json({ token });
-  } catch (error) {
-    res.status(500).json({ message: error.message });
+    res.json({ token, user: safeUser(user) });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
   }
 });
 

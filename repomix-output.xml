@@ -1,0 +1,1791 @@
+This file is a merged representation of a subset of the codebase, containing files not matching ignore patterns, combined into a single document by Repomix.
+
+<file_summary>
+This section contains a summary of this file.
+
+<purpose>
+This file contains a packed representation of a subset of the repository's contents that is considered the most important context.
+It is designed to be easily consumable by AI systems for analysis, code review,
+or other automated processes.
+</purpose>
+
+<file_format>
+The content is organized as follows:
+1. This summary section
+2. Repository information
+3. Directory structure
+4. Repository files (if enabled)
+5. Multiple file entries, each consisting of:
+  - File path as an attribute
+  - Full contents of the file
+</file_format>
+
+<usage_guidelines>
+- This file should be treated as read-only. Any changes should be made to the
+  original repository files, not this packed version.
+- When processing this file, use the file path to distinguish
+  between different files in the repository.
+- Be aware that this file may contain sensitive information. Handle it with
+  the same level of security as you would the original repository.
+</usage_guidelines>
+
+<notes>
+- Some files may have been excluded based on .gitignore rules and Repomix's configuration
+- Binary files are not included in this packed representation. Please refer to the Repository Structure section for a complete list of file paths, including binary files
+- Files matching these patterns are excluded: **/.dist/**, **/node_modules/**, server/uploads/**, **/.env, **/*lock.json
+- Files matching patterns in .gitignore are excluded
+- Files matching default ignore patterns are excluded
+- Files are sorted by Git change count (files with more changes are at the bottom)
+</notes>
+
+</file_summary>
+
+<directory_structure>
+.gitignore
+client/.gitignore
+client/eslint.config.js
+client/index.html
+client/package.json
+client/public/favicon.svg
+client/public/icons.svg
+client/README.md
+client/src/api/axios.js
+client/src/App.jsx
+client/src/components/CreatePost.jsx
+client/src/components/Navbar.jsx
+client/src/components/PostCard.jsx
+client/src/components/ProtectedRoute.jsx
+client/src/index.css
+client/src/main.jsx
+client/src/pages/FeedPage.jsx
+client/src/pages/LoginPage.jsx
+client/src/pages/ProfilePage.jsx
+client/src/pages/RegisterPage.jsx
+client/src/store/index.js
+client/src/store/slices/authSlice.js
+client/src/store/slices/postSlice.js
+client/vite.config.js
+package.json
+README.md
+server/.gitignore
+server/package.json
+server/server.js
+server/src/config/db.js
+server/src/middlewares/authMiddleware.js
+server/src/middlewares/uploadMiddleware.js
+server/src/models/Post.js
+server/src/models/User.js
+server/src/routes/authRoutes.js
+server/src/routes/postRoutes.js
+server/src/routes/TokenGenerator.js
+server/src/routes/userRoutes.js
+</directory_structure>
+
+<files>
+This section contains the contents of the repository's files.
+
+<file path="client/src/api/axios.js">
+import axios from "axios";
+
+const api = axios.create({ baseURL: "/api" });
+
+api.interceptors.request.use((config) => {
+  const token = localStorage.getItem("token");
+  if (token) config.headers.Authorization = `Bearer ${token}`;
+  return config;
+});
+
+export default api;
+</file>
+
+<file path="client/src/components/CreatePost.jsx">
+import { useState } from "react";
+import { useDispatch } from "react-redux";
+import { createPost } from "../store/slices/postSlice";
+
+export default function CreatePost() {
+  const dispatch = useDispatch();
+  const [content, setContent] = useState("");
+  const [image, setImage] = useState(null);
+  const [loading, setLoading] = useState(false);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!content.trim()) return;
+    setLoading(true);
+    const fd = new FormData();
+    fd.append("content", content);
+    if (image) fd.append("image", image);
+    await dispatch(createPost(fd));
+    setContent("");
+    setImage(null);
+    e.target.reset();
+    setLoading(false);
+  };
+
+  return (
+    <div className="card create-post">
+      <form onSubmit={handleSubmit}>
+        <textarea
+          value={content}
+          onChange={(e) => setContent(e.target.value)}
+          placeholder="What's on your mind?"
+          maxLength={500}
+          rows={3}
+        />
+        <div className="create-post-footer">
+          <label className="file-label">
+            📎 Photo
+            <input
+              type="file"
+              accept="image/*"
+              onChange={(e) => setImage(e.target.files[0])}
+              hidden
+            />
+          </label>
+          {image && <span className="file-name">{image.name}</span>}
+          <button
+            type="submit"
+            className="btn-primary"
+            disabled={loading || !content.trim()}
+          >
+            {loading ? "Posting…" : "Post"}
+          </button>
+        </div>
+      </form>
+    </div>
+  );
+}
+</file>
+
+<file path="client/src/components/Navbar.jsx">
+import { Link, useNavigate } from "react-router-dom";
+import { useDispatch, useSelector } from "react-redux";
+import { logout } from "../store/slices/authSlice";
+
+export default function Navbar() {
+  const dispatch = useDispatch();
+  const navigate = useNavigate();
+  const user = useSelector((s) => s.auth.user);
+
+  const handleLogout = () => {
+    dispatch(logout());
+    navigate("/login");
+  };
+
+  return (
+    <nav className="navbar">
+      <div className="navbar-inner">
+        <Link to="/" className="navbar-logo">SocialApp</Link>
+        <div className="navbar-links">
+          <Link to="/">Home</Link>
+          <Link to="/explore">Explore</Link>
+          {user && <Link to={`/profile/${user._id}`}>Profile</Link>}
+        </div>
+        <button onClick={handleLogout} className="btn-ghost">Logout</button>
+      </div>
+    </nav>
+  );
+}
+</file>
+
+<file path="client/src/components/PostCard.jsx">
+import { useState } from "react";
+import { useDispatch, useSelector } from "react-redux";
+import { Link } from "react-router-dom";
+import { toggleLike, addComment, deletePost } from "../store/slices/postSlice";
+
+export default function PostCard({ post }) {
+  const dispatch = useDispatch();
+  const user = useSelector((s) => s.auth.user);
+  const [comment, setComment] = useState("");
+  const [showComments, setShowComments] = useState(false);
+
+  const liked = post.likes.some((id) => id === user?._id || id?._id === user?._id);
+  const isAuthor = post.author?._id === user?._id;
+
+  const handleComment = async (e) => {
+    e.preventDefault();
+    if (!comment.trim()) return;
+    await dispatch(addComment({ postId: post._id, text: comment }));
+    setComment("");
+  };
+
+  return (
+    <div className="card post-card">
+      <div className="post-header">
+        <Link to={`/profile/${post.author?._id}`} className="post-author">
+          <Avatar user={post.author} size="sm" />
+          <span className="username">{post.author?.username}</span>
+        </Link>
+        <span className="post-date">
+          {new Date(post.createdAt).toLocaleDateString("en-US", {
+            month: "short",
+            day: "numeric",
+          })}
+        </span>
+        {isAuthor && (
+          <button
+            className="btn-ghost delete-btn"
+            onClick={() => dispatch(deletePost(post._id))}
+            title="Delete post"
+          >
+            ✕
+          </button>
+        )}
+      </div>
+
+      <p className="post-content">{post.content}</p>
+
+      {post.image && (
+        <img src={post.image} alt="post attachment" className="post-image" />
+      )}
+
+      <div className="post-actions">
+        <button
+          className={`btn-ghost ${liked ? "liked" : ""}`}
+          onClick={() => dispatch(toggleLike(post._id))}
+        >
+          {liked ? "❤️" : "🤍"} {post.likes.length}
+        </button>
+        <button className="btn-ghost" onClick={() => setShowComments((v) => !v)}>
+          💬 {post.comments.length}
+        </button>
+      </div>
+
+      {showComments && (
+        <div className="comments">
+          {post.comments.map((c, i) => (
+            <div key={i} className="comment">
+              <Link to={`/profile/${c.user?._id}`} className="comment-author">
+                {c.user?.username}
+              </Link>
+              <span>{c.text}</span>
+            </div>
+          ))}
+          <form onSubmit={handleComment} className="comment-form">
+            <input
+              value={comment}
+              onChange={(e) => setComment(e.target.value)}
+              placeholder="Add a comment…"
+              maxLength={300}
+            />
+            <button type="submit" className="btn-primary sm">
+              Post
+            </button>
+          </form>
+        </div>
+      )}
+    </div>
+  );
+}
+
+export function Avatar({ user, size = "sm" }) {
+  if (!user) return null;
+  if (user.profilePicture) {
+    return (
+      <img
+        src={user.profilePicture}
+        alt={user.username}
+        className={`avatar-${size}`}
+      />
+    );
+  }
+  return (
+    <div className={`avatar-${size} avatar-placeholder`}>
+      {user.username?.[0]?.toUpperCase()}
+    </div>
+  );
+}
+</file>
+
+<file path="client/src/components/ProtectedRoute.jsx">
+import { Navigate } from "react-router-dom";
+import { useSelector } from "react-redux";
+
+export default function ProtectedRoute({ children }) {
+  const token = useSelector((s) => s.auth.token);
+  return token ? children : <Navigate to="/login" replace />;
+}
+</file>
+
+<file path="client/src/pages/FeedPage.jsx">
+import { useEffect } from "react";
+import { useDispatch, useSelector } from "react-redux";
+import { fetchPosts } from "../store/slices/postSlice";
+import CreatePost from "../components/CreatePost";
+import PostCard from "../components/PostCard";
+
+export default function FeedPage({ explore = false }) {
+  const dispatch = useDispatch();
+  const { items, loading, error } = useSelector((s) => s.posts);
+
+  useEffect(() => {
+    dispatch(fetchPosts(explore));
+  }, [dispatch, explore]);
+
+  return (
+    <div className="feed-page">
+      <div className="feed-container">
+        {!explore && <CreatePost />}
+        {loading && <div className="loading">Loading posts…</div>}
+        {error && <div className="error-msg">{error}</div>}
+        {!loading && items.length === 0 && (
+          <div className="empty-state">
+            {explore
+              ? "No posts yet. Be the first!"
+              : "Your feed is empty. Follow people or check Explore."}
+          </div>
+        )}
+        {items.map((post) => (
+          <PostCard key={post._id} post={post} />
+        ))}
+      </div>
+    </div>
+  );
+}
+</file>
+
+<file path="client/src/pages/LoginPage.jsx">
+import { useState } from "react";
+import { useDispatch, useSelector } from "react-redux";
+import { Link, useNavigate } from "react-router-dom";
+import { login } from "../store/slices/authSlice";
+
+export default function LoginPage() {
+  const dispatch = useDispatch();
+  const navigate = useNavigate();
+  const { loading, error } = useSelector((s) => s.auth);
+  const [form, setForm] = useState({ email: "", password: "" });
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    const result = await dispatch(login(form));
+    if (login.fulfilled.match(result)) navigate("/");
+  };
+
+  return (
+    <div className="auth-page">
+      <div className="auth-card">
+        <h1>SocialApp</h1>
+        <h2>Sign in</h2>
+        {error && <div className="error-msg">{error}</div>}
+        <form onSubmit={handleSubmit}>
+          <input
+            type="email"
+            placeholder="Email"
+            value={form.email}
+            onChange={(e) => setForm({ ...form, email: e.target.value })}
+            required
+          />
+          <input
+            type="password"
+            placeholder="Password"
+            value={form.password}
+            onChange={(e) => setForm({ ...form, password: e.target.value })}
+            required
+          />
+          <button type="submit" className="btn-primary full" disabled={loading}>
+            {loading ? "Signing in…" : "Sign in"}
+          </button>
+        </form>
+        <p>
+          Don&apos;t have an account? <Link to="/register">Sign up</Link>
+        </p>
+      </div>
+    </div>
+  );
+}
+</file>
+
+<file path="client/src/pages/ProfilePage.jsx">
+import { useState, useEffect } from "react";
+import { useParams } from "react-router-dom";
+import { useSelector, useDispatch } from "react-redux";
+import { updateUser } from "../store/slices/authSlice";
+import api from "../api/axios";
+import PostCard, { Avatar } from "../components/PostCard";
+
+export default function ProfilePage() {
+  const { id } = useParams();
+  const dispatch = useDispatch();
+  const currentUser = useSelector((s) => s.auth.user);
+
+  const [profile, setProfile] = useState(null);
+  const [posts, setPosts] = useState([]);
+  const [following, setFollowing] = useState(false);
+  const [editing, setEditing] = useState(false);
+  const [bio, setBio] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+
+  const isOwn = currentUser?._id === id;
+
+  useEffect(() => {
+    const load = async () => {
+      setLoading(true);
+      try {
+        const { data } = await api.get(`/users/${id}`);
+        setProfile(data.user);
+        setPosts(data.posts);
+        setBio(data.user.bio || "");
+        setFollowing(
+          data.user.followers.some(
+            (f) => f === currentUser?._id || f?._id === currentUser?._id
+          )
+        );
+      } catch (e) {
+        console.error(e);
+      }
+      setLoading(false);
+    };
+    load();
+  }, [id, currentUser]);
+
+  const handleFollow = async () => {
+    await api.put(`/users/${id}/follow`);
+    setFollowing((f) => !f);
+    setProfile((p) => ({
+      ...p,
+      followers: following
+        ? p.followers.filter((f) => f !== currentUser._id)
+        : [...p.followers, currentUser._id],
+    }));
+  };
+
+  const handleSaveBio = async () => {
+    setSaving(true);
+    try {
+      const { data } = await api.put("/users/profile", { bio });
+      dispatch(updateUser(data));
+      setProfile(data);
+      setEditing(false);
+    } catch (e) {
+      console.error(e);
+    }
+    setSaving(false);
+  };
+
+  if (loading) return <div className="loading">Loading…</div>;
+  if (!profile) return <div className="error-msg" style={{ margin: 32 }}>User not found.</div>;
+
+  return (
+    <div className="profile-page">
+      <div className="card profile-header">
+        <Avatar user={profile} size="lg" />
+        <div className="profile-info">
+          <h2>{profile.username}</h2>
+
+          {editing ? (
+            <div className="edit-form">
+              <textarea
+                value={bio}
+                onChange={(e) => setBio(e.target.value)}
+                rows={2}
+                maxLength={200}
+                placeholder="Write a bio…"
+              />
+              <div className="edit-actions">
+                <button className="btn-primary sm" onClick={handleSaveBio} disabled={saving}>
+                  {saving ? "Saving…" : "Save"}
+                </button>
+                <button className="btn-ghost sm" onClick={() => setEditing(false)}>
+                  Cancel
+                </button>
+              </div>
+            </div>
+          ) : (
+            <p className="bio">{profile.bio || "No bio yet."}</p>
+          )}
+
+          <div className="profile-stats">
+            <span><strong>{posts.length}</strong> posts</span>
+            <span><strong>{profile.followers.length}</strong> followers</span>
+            <span><strong>{profile.following.length}</strong> following</span>
+          </div>
+
+          {isOwn ? (
+            <button className="btn-ghost" onClick={() => setEditing(true)}>
+              Edit profile
+            </button>
+          ) : (
+            <button
+              className={`btn-primary ${following ? "outlined" : ""}`}
+              onClick={handleFollow}
+            >
+              {following ? "Unfollow" : "Follow"}
+            </button>
+          )}
+        </div>
+      </div>
+
+      <div className="feed-container" style={{ marginTop: 12 }}>
+        {posts.length === 0 ? (
+          <div className="empty-state">No posts yet.</div>
+        ) : (
+          posts.map((p) => <PostCard key={p._id} post={p} />)
+        )}
+      </div>
+    </div>
+  );
+}
+</file>
+
+<file path="client/src/pages/RegisterPage.jsx">
+import { useState } from "react";
+import { useDispatch, useSelector } from "react-redux";
+import { Link, useNavigate } from "react-router-dom";
+import { register } from "../store/slices/authSlice";
+
+export default function RegisterPage() {
+  const dispatch = useDispatch();
+  const navigate = useNavigate();
+  const { loading, error } = useSelector((s) => s.auth);
+  const [form, setForm] = useState({ username: "", email: "", password: "" });
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    const result = await dispatch(register(form));
+    if (register.fulfilled.match(result)) navigate("/");
+  };
+
+  return (
+    <div className="auth-page">
+      <div className="auth-card">
+        <h1>SocialApp</h1>
+        <h2>Create account</h2>
+        {error && <div className="error-msg">{error}</div>}
+        <form onSubmit={handleSubmit}>
+          <input
+            placeholder="Username"
+            value={form.username}
+            onChange={(e) => setForm({ ...form, username: e.target.value })}
+            required
+          />
+          <input
+            type="email"
+            placeholder="Email"
+            value={form.email}
+            onChange={(e) => setForm({ ...form, email: e.target.value })}
+            required
+          />
+          <input
+            type="password"
+            placeholder="Password (min 6 chars)"
+            value={form.password}
+            onChange={(e) => setForm({ ...form, password: e.target.value })}
+            minLength={6}
+            required
+          />
+          <button type="submit" className="btn-primary full" disabled={loading}>
+            {loading ? "Creating account…" : "Sign up"}
+          </button>
+        </form>
+        <p>
+          Already have an account? <Link to="/login">Sign in</Link>
+        </p>
+      </div>
+    </div>
+  );
+}
+</file>
+
+<file path="client/src/store/index.js">
+import { configureStore } from "@reduxjs/toolkit";
+import authReducer from "./slices/authSlice";
+import postReducer from "./slices/postSlice";
+
+export const store = configureStore({
+  reducer: {
+    auth: authReducer,
+    posts: postReducer,
+  },
+});
+</file>
+
+<file path="client/src/store/slices/authSlice.js">
+import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
+import api from "../../api/axios";
+
+const stored = localStorage.getItem("user");
+
+export const login = createAsyncThunk("auth/login", async (creds, { rejectWithValue }) => {
+  try {
+    const { data } = await api.post("/auth/login", creds);
+    localStorage.setItem("token", data.token);
+    localStorage.setItem("user", JSON.stringify(data.user));
+    return data;
+  } catch (err) {
+    return rejectWithValue(err.response?.data?.message || "Login failed");
+  }
+});
+
+export const register = createAsyncThunk("auth/register", async (body, { rejectWithValue }) => {
+  try {
+    const { data } = await api.post("/auth/register", body);
+    localStorage.setItem("token", data.token);
+    localStorage.setItem("user", JSON.stringify(data.user));
+    return data;
+  } catch (err) {
+    return rejectWithValue(err.response?.data?.message || "Registration failed");
+  }
+});
+
+const authSlice = createSlice({
+  name: "auth",
+  initialState: {
+    user: stored ? JSON.parse(stored) : null,
+    token: localStorage.getItem("token") || null,
+    loading: false,
+    error: null,
+  },
+  reducers: {
+    logout(state) {
+      state.user = null;
+      state.token = null;
+      localStorage.removeItem("token");
+      localStorage.removeItem("user");
+    },
+    updateUser(state, action) {
+      state.user = { ...state.user, ...action.payload };
+      localStorage.setItem("user", JSON.stringify(state.user));
+    },
+  },
+  extraReducers: (b) => {
+    b.addCase(login.pending, (s) => { s.loading = true; s.error = null; })
+      .addCase(login.fulfilled, (s, a) => { s.loading = false; s.user = a.payload.user; s.token = a.payload.token; })
+      .addCase(login.rejected, (s, a) => { s.loading = false; s.error = a.payload; })
+      .addCase(register.pending, (s) => { s.loading = true; s.error = null; })
+      .addCase(register.fulfilled, (s, a) => { s.loading = false; s.user = a.payload.user; s.token = a.payload.token; })
+      .addCase(register.rejected, (s, a) => { s.loading = false; s.error = a.payload; });
+  },
+});
+
+export const { logout, updateUser } = authSlice.actions;
+export default authSlice.reducer;
+</file>
+
+<file path="client/src/store/slices/postSlice.js">
+import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
+import api from "../../api/axios";
+
+export const fetchPosts = createAsyncThunk("posts/fetch", async (explore, { rejectWithValue }) => {
+  try {
+    const { data } = await api.get(explore ? "/posts/explore" : "/posts");
+    return data;
+  } catch (err) {
+    return rejectWithValue(err.response?.data?.message || "Failed to load posts");
+  }
+});
+
+export const createPost = createAsyncThunk("posts/create", async (formData, { rejectWithValue }) => {
+  try {
+    const { data } = await api.post("/posts", formData, {
+      headers: { "Content-Type": "multipart/form-data" },
+    });
+    return data;
+  } catch (err) {
+    return rejectWithValue(err.response?.data?.message || "Failed to create post");
+  }
+});
+
+export const toggleLike = createAsyncThunk("posts/like", async (postId, { rejectWithValue }) => {
+  try {
+    const { data } = await api.put(`/posts/${postId}/like`);
+    return { postId, likes: data.likes };
+  } catch (err) {
+    return rejectWithValue(err.response?.data?.message);
+  }
+});
+
+export const addComment = createAsyncThunk("posts/comment", async ({ postId, text }, { rejectWithValue }) => {
+  try {
+    const { data } = await api.post(`/posts/${postId}/comments`, { text });
+    return { postId, comment: data };
+  } catch (err) {
+    return rejectWithValue(err.response?.data?.message);
+  }
+});
+
+export const deletePost = createAsyncThunk("posts/delete", async (postId, { rejectWithValue }) => {
+  try {
+    await api.delete(`/posts/${postId}`);
+    return postId;
+  } catch (err) {
+    return rejectWithValue(err.response?.data?.message);
+  }
+});
+
+const postSlice = createSlice({
+  name: "posts",
+  initialState: { items: [], loading: false, error: null },
+  reducers: {},
+  extraReducers: (b) => {
+    b.addCase(fetchPosts.pending, (s) => { s.loading = true; s.error = null; })
+      .addCase(fetchPosts.fulfilled, (s, a) => { s.loading = false; s.items = a.payload; })
+      .addCase(fetchPosts.rejected, (s, a) => { s.loading = false; s.error = a.payload; })
+      .addCase(createPost.fulfilled, (s, a) => { s.items.unshift(a.payload); })
+      .addCase(toggleLike.fulfilled, (s, a) => {
+        const p = s.items.find((p) => p._id === a.payload.postId);
+        if (p) p.likes = a.payload.likes;
+      })
+      .addCase(addComment.fulfilled, (s, a) => {
+        const p = s.items.find((p) => p._id === a.payload.postId);
+        if (p) p.comments.push(a.payload.comment);
+      })
+      .addCase(deletePost.fulfilled, (s, a) => {
+        s.items = s.items.filter((p) => p._id !== a.payload);
+      });
+  },
+});
+
+export default postSlice.reducer;
+</file>
+
+<file path="README.md">
+# Social Platform — Setup Guide
+
+## Prerequisites
+
+- Node.js, MongoDB running locally (or Atlas URI)
+
+## Environment Variables
+
+Create `server/.env`:
+
+```
+MONGO_URI=mongodb://localhost:27017/social-platform
+JWT_SECRET=your_super_secret_key_here
+JWT_EXPIRES_IN=7d
+PORT=5000
+```
+
+## Install & Run
+
+From the project root:
+
+```bash
+npm run dev
+```
+
+Or manually:
+
+```bash
+# Terminal 1 — server
+cd server && npm run dev
+
+# Terminal 2 — client
+cd client && npm run dev
+```
+
+- Client: http://localhost:5173
+- Server: http://localhost:5000
+
+## What's built
+
+### Backend (`server/`)
+
+- `POST /api/auth/register` — register
+- `POST /api/auth/login` — login
+- `GET /api/posts` — personalized feed
+- `GET /api/posts/explore` — all posts
+- `POST /api/posts` — create post (with optional image)
+- `DELETE /api/posts/:id` — delete own post
+- `PUT /api/posts/:id/like` — toggle like
+- `POST /api/posts/:id/comments` — add comment
+- `GET /api/users/:id` — public profile + posts
+- `PUT /api/users/profile` — update bio/username/picture
+- `PUT /api/users/:id/follow` — follow/unfollow
+- `GET /api/users/search?q=` — search users
+
+### Frontend (`client/`)
+
+- Register / Login pages
+- Home feed (posts from followed users)
+- Explore feed (all posts)
+- Create post with image upload
+- Like / comment on posts
+- Delete own posts
+- User profile page
+- Follow / unfollow users
+- Edit bio
+</file>
+
+<file path="server/src/middlewares/uploadMiddleware.js">
+import multer from "multer";
+import path from "path";
+import fs from "fs";
+
+const uploadDir = "uploads/";
+if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir);
+
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => cb(null, uploadDir),
+  filename: (req, file, cb) => {
+    const ext = path.extname(file.originalname);
+    cb(null, `${Date.now()}-${Math.round(Math.random() * 1e9)}${ext}`);
+  },
+});
+
+const fileFilter = (req, file, cb) => {
+  if (file.mimetype.startsWith("image/")) cb(null, true);
+  else cb(new Error("Only image files are allowed"), false);
+};
+
+export default multer({
+  storage,
+  fileFilter,
+  limits: { fileSize: 5 * 1024 * 1024 }, // 5 MB
+});
+</file>
+
+<file path="server/src/models/Post.js">
+import mongoose from "mongoose";
+
+const commentSchema = new mongoose.Schema({
+  user: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
+  text: { type: String, required: true, maxlength: 300 },
+  createdAt: { type: Date, default: Date.now },
+});
+
+const postSchema = new mongoose.Schema(
+  {
+    author: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
+    content: { type: String, required: true, maxlength: 500 },
+    image: { type: String, default: "" },
+    likes: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
+    comments: [commentSchema],
+  },
+  { timestamps: true }
+);
+
+export default mongoose.model("Post", postSchema);
+</file>
+
+<file path="server/src/routes/postRoutes.js">
+import express from "express";
+import Post from "../models/Post.js";
+import protect from "../middlewares/authMiddleware.js";
+import upload from "../middlewares/uploadMiddleware.js";
+
+const router = express.Router();
+
+// GET /api/posts — personalized feed (own + following)
+router.get("/", protect, async (req, res) => {
+  try {
+    const ids = [...req.user.following, req.user._id];
+    const posts = await Post.find({ author: { $in: ids } })
+      .sort({ createdAt: -1 })
+      .limit(50)
+      .populate("author", "username profilePicture")
+      .populate("comments.user", "username profilePicture");
+    res.json(posts);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+// GET /api/posts/explore — all posts
+router.get("/explore", protect, async (req, res) => {
+  try {
+    const posts = await Post.find()
+      .sort({ createdAt: -1 })
+      .limit(50)
+      .populate("author", "username profilePicture")
+      .populate("comments.user", "username profilePicture");
+    res.json(posts);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+// POST /api/posts — create a post
+router.post("/", protect, upload.single("image"), async (req, res) => {
+  try {
+    const { content } = req.body;
+    if (!content?.trim()) return res.status(400).json({ message: "Content is required" });
+    const image = req.file ? `/uploads/${req.file.filename}` : "";
+    const post = await Post.create({ author: req.user._id, content, image });
+    const populated = await post.populate("author", "username profilePicture");
+    res.status(201).json(populated);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+// DELETE /api/posts/:id
+router.delete("/:id", protect, async (req, res) => {
+  try {
+    const post = await Post.findById(req.params.id);
+    if (!post) return res.status(404).json({ message: "Post not found" });
+    if (post.author.toString() !== req.user._id.toString())
+      return res.status(403).json({ message: "Not authorized" });
+    await post.deleteOne();
+    res.json({ message: "Post deleted" });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+// PUT /api/posts/:id/like — toggle like
+router.put("/:id/like", protect, async (req, res) => {
+  try {
+    const post = await Post.findById(req.params.id);
+    if (!post) return res.status(404).json({ message: "Post not found" });
+    const uid = req.user._id.toString();
+    const idx = post.likes.findIndex((id) => id.toString() === uid);
+    if (idx === -1) post.likes.push(req.user._id);
+    else post.likes.splice(idx, 1);
+    await post.save();
+    res.json({ likes: post.likes });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+// POST /api/posts/:id/comments
+router.post("/:id/comments", protect, async (req, res) => {
+  try {
+    const { text } = req.body;
+    if (!text?.trim()) return res.status(400).json({ message: "Comment text is required" });
+    const post = await Post.findById(req.params.id);
+    if (!post) return res.status(404).json({ message: "Post not found" });
+    post.comments.push({ user: req.user._id, text });
+    await post.save();
+    await post.populate("comments.user", "username profilePicture");
+    res.status(201).json(post.comments[post.comments.length - 1]);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+export default router;
+</file>
+
+<file path="server/src/routes/userRoutes.js">
+import express from "express";
+import User from "../models/User.js";
+import Post from "../models/Post.js";
+import protect from "../middlewares/authMiddleware.js";
+import upload from "../middlewares/uploadMiddleware.js";
+
+const router = express.Router();
+
+// GET /api/users/search?q=
+router.get("/search", protect, async (req, res) => {
+  try {
+    const { q } = req.query;
+    if (!q?.trim()) return res.json([]);
+    const users = await User.find({ username: { $regex: q, $options: "i" } })
+      .select("username profilePicture bio")
+      .limit(10);
+    res.json(users);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+// GET /api/users/me — current user
+router.get("/me", protect, (req, res) => res.json(req.user));
+
+// GET /api/users/:id — public profile
+router.get("/:id", protect, async (req, res) => {
+  try {
+    const user = await User.findById(req.params.id).select("-password");
+    if (!user) return res.status(404).json({ message: "User not found" });
+    const posts = await Post.find({ author: req.params.id })
+      .sort({ createdAt: -1 })
+      .populate("author", "username profilePicture")
+      .populate("comments.user", "username profilePicture");
+    res.json({ user, posts });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+// PUT /api/users/profile — update own profile (text + optional picture)
+router.put("/profile", protect, upload.single("profilePicture"), async (req, res) => {
+  try {
+    const { username, bio } = req.body;
+    const updates = {};
+    if (username?.trim()) updates.username = username.trim();
+    if (bio !== undefined) updates.bio = bio;
+    if (req.file) updates.profilePicture = `/uploads/${req.file.filename}`;
+    const user = await User.findByIdAndUpdate(req.user._id, updates, { new: true }).select("-password");
+    res.json(user);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+// PUT /api/users/:id/follow — toggle follow
+router.put("/:id/follow", protect, async (req, res) => {
+  try {
+    if (req.params.id === req.user._id.toString())
+      return res.status(400).json({ message: "You cannot follow yourself" });
+    const target = await User.findById(req.params.id);
+    if (!target) return res.status(404).json({ message: "User not found" });
+    const isFollowing = req.user.following.map(String).includes(req.params.id);
+    if (isFollowing) {
+      await User.findByIdAndUpdate(req.user._id, { $pull: { following: req.params.id } });
+      await User.findByIdAndUpdate(req.params.id, { $pull: { followers: req.user._id } });
+    } else {
+      await User.findByIdAndUpdate(req.user._id, { $push: { following: req.params.id } });
+      await User.findByIdAndUpdate(req.params.id, { $push: { followers: req.user._id } });
+    }
+    res.json({ following: !isFollowing });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+export default router;
+</file>
+
+<file path=".gitignore">
+# Dependencies
+node_modules/
+client/node_modules/
+server/node_modules/
+
+# Build outputs
+dist/
+build/
+client/dist/
+client/build/
+
+# Environment variables
+.env
+*.env
+client/.env
+server/.env
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE/editor
+.vscode/
+.idea/
+
+# Misc
+coverage/
+.cache/
+</file>
+
+<file path="client/.gitignore">
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+node_modules
+dist
+dist-ssr
+*.local
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+</file>
+
+<file path="client/eslint.config.js">
+import js from '@eslint/js'
+import globals from 'globals'
+import reactHooks from 'eslint-plugin-react-hooks'
+import reactRefresh from 'eslint-plugin-react-refresh'
+import { defineConfig, globalIgnores } from 'eslint/config'
+
+export default defineConfig([
+  globalIgnores(['dist']),
+  {
+    files: ['**/*.{js,jsx}'],
+    extends: [
+      js.configs.recommended,
+      reactHooks.configs.flat.recommended,
+      reactRefresh.configs.vite,
+    ],
+    languageOptions: {
+      globals: globals.browser,
+      parserOptions: { ecmaFeatures: { jsx: true } },
+    },
+  },
+])
+</file>
+
+<file path="client/index.html">
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>client</title>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
+</html>
+</file>
+
+<file path="client/package.json">
+{
+  "name": "client",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "lint": "eslint .",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@reduxjs/toolkit": "^2.11.2",
+    "axios": "^1.15.2",
+    "react": "^19.2.5",
+    "react-dom": "^19.2.5",
+    "react-redux": "^9.2.0",
+    "react-router-dom": "^7.14.2"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^6.0.1",
+    "eslint": "^10.2.1",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "eslint-plugin-react-refresh": "^0.5.2",
+    "globals": "^17.5.0",
+    "vite": "^8.0.10"
+  }
+}
+</file>
+
+<file path="client/public/favicon.svg">
+<svg xmlns="http://www.w3.org/2000/svg" width="48" height="46" fill="none" viewBox="0 0 48 46"><path fill="#863bff" d="M25.946 44.938c-.664.845-2.021.375-2.021-.698V33.937a2.26 2.26 0 0 0-2.262-2.262H10.287c-.92 0-1.456-1.04-.92-1.788l7.48-10.471c1.07-1.497 0-3.578-1.842-3.578H1.237c-.92 0-1.456-1.04-.92-1.788L10.013.474c.214-.297.556-.474.92-.474h28.894c.92 0 1.456 1.04.92 1.788l-7.48 10.471c-1.07 1.498 0 3.579 1.842 3.579h11.377c.943 0 1.473 1.088.89 1.83L25.947 44.94z" style="fill:#863bff;fill:color(display-p3 .5252 .23 1);fill-opacity:1"/><mask id="a" width="48" height="46" x="0" y="0" maskUnits="userSpaceOnUse" style="mask-type:alpha"><path fill="#000" d="M25.842 44.938c-.664.844-2.021.375-2.021-.698V33.937a2.26 2.26 0 0 0-2.262-2.262H10.183c-.92 0-1.456-1.04-.92-1.788l7.48-10.471c1.07-1.498 0-3.579-1.842-3.579H1.133c-.92 0-1.456-1.04-.92-1.787L9.91.473c.214-.297.556-.474.92-.474h28.894c.92 0 1.456 1.04.92 1.788l-7.48 10.471c-1.07 1.498 0 3.578 1.842 3.578h11.377c.943 0 1.473 1.088.89 1.832L25.843 44.94z" style="fill:#000;fill-opacity:1"/></mask><g mask="url(#a)"><g filter="url(#b)"><ellipse cx="5.508" cy="14.704" fill="#ede6ff" rx="5.508" ry="14.704" style="fill:#ede6ff;fill:color(display-p3 .9275 .9033 1);fill-opacity:1" transform="matrix(.00324 1 1 -.00324 -4.47 31.516)"/></g><g filter="url(#c)"><ellipse cx="10.399" cy="29.851" fill="#ede6ff" rx="10.399" ry="29.851" style="fill:#ede6ff;fill:color(display-p3 .9275 .9033 1);fill-opacity:1" transform="matrix(.00324 1 1 -.00324 -39.328 7.883)"/></g><g filter="url(#d)"><ellipse cx="5.508" cy="30.487" fill="#7e14ff" rx="5.508" ry="30.487" style="fill:#7e14ff;fill:color(display-p3 .4922 .0767 1);fill-opacity:1" transform="rotate(89.814 -25.913 -14.639)scale(1 -1)"/></g><g filter="url(#e)"><ellipse cx="5.508" cy="30.599" fill="#7e14ff" rx="5.508" ry="30.599" style="fill:#7e14ff;fill:color(display-p3 .4922 .0767 1);fill-opacity:1" transform="rotate(89.814 -32.644 -3.334)scale(1 -1)"/></g><g filter="url(#f)"><ellipse cx="5.508" cy="30.599" fill="#7e14ff" rx="5.508" ry="30.599" style="fill:#7e14ff;fill:color(display-p3 .4922 .0767 1);fill-opacity:1" transform="matrix(.00324 1 1 -.00324 -34.34 30.47)"/></g><g filter="url(#g)"><ellipse cx="14.072" cy="22.078" fill="#ede6ff" rx="14.072" ry="22.078" style="fill:#ede6ff;fill:color(display-p3 .9275 .9033 1);fill-opacity:1" transform="rotate(93.35 24.506 48.493)scale(-1 1)"/></g><g filter="url(#h)"><ellipse cx="3.47" cy="21.501" fill="#7e14ff" rx="3.47" ry="21.501" style="fill:#7e14ff;fill:color(display-p3 .4922 .0767 1);fill-opacity:1" transform="rotate(89.009 28.708 47.59)scale(-1 1)"/></g><g filter="url(#i)"><ellipse cx="3.47" cy="21.501" fill="#7e14ff" rx="3.47" ry="21.501" style="fill:#7e14ff;fill:color(display-p3 .4922 .0767 1);fill-opacity:1" transform="rotate(89.009 28.708 47.59)scale(-1 1)"/></g><g filter="url(#j)"><ellipse cx=".387" cy="8.972" fill="#7e14ff" rx="4.407" ry="29.108" style="fill:#7e14ff;fill:color(display-p3 .4922 .0767 1);fill-opacity:1" transform="rotate(39.51 .387 8.972)"/></g><g filter="url(#k)"><ellipse cx="47.523" cy="-6.092" fill="#7e14ff" rx="4.407" ry="29.108" style="fill:#7e14ff;fill:color(display-p3 .4922 .0767 1);fill-opacity:1" transform="rotate(37.892 47.523 -6.092)"/></g><g filter="url(#l)"><ellipse cx="41.412" cy="6.333" fill="#47bfff" rx="5.971" ry="9.665" style="fill:#47bfff;fill:color(display-p3 .2799 .748 1);fill-opacity:1" transform="rotate(37.892 41.412 6.333)"/></g><g filter="url(#m)"><ellipse cx="-1.879" cy="38.332" fill="#7e14ff" rx="4.407" ry="29.108" style="fill:#7e14ff;fill:color(display-p3 .4922 .0767 1);fill-opacity:1" transform="rotate(37.892 -1.88 38.332)"/></g><g filter="url(#n)"><ellipse cx="-1.879" cy="38.332" fill="#7e14ff" rx="4.407" ry="29.108" style="fill:#7e14ff;fill:color(display-p3 .4922 .0767 1);fill-opacity:1" transform="rotate(37.892 -1.88 38.332)"/></g><g filter="url(#o)"><ellipse cx="35.651" cy="29.907" fill="#7e14ff" rx="4.407" ry="29.108" style="fill:#7e14ff;fill:color(display-p3 .4922 .0767 1);fill-opacity:1" transform="rotate(37.892 35.651 29.907)"/></g><g filter="url(#p)"><ellipse cx="38.418" cy="32.4" fill="#47bfff" rx="5.971" ry="15.297" style="fill:#47bfff;fill:color(display-p3 .2799 .748 1);fill-opacity:1" transform="rotate(37.892 38.418 32.4)"/></g></g><defs><filter id="b" width="60.045" height="41.654" x="-19.77" y="16.149" color-interpolation-filters="sRGB" filterUnits="userSpaceOnUse"><feFlood flood-opacity="0" result="BackgroundImageFix"/><feBlend in="SourceGraphic" in2="BackgroundImageFix" result="shape"/><feGaussianBlur result="effect1_foregroundBlur_2002_17158" stdDeviation="7.659"/></filter><filter id="c" width="90.34" height="51.437" x="-54.613" y="-7.533" color-interpolation-filters="sRGB" filterUnits="userSpaceOnUse"><feFlood flood-opacity="0" result="BackgroundImageFix"/><feBlend in="SourceGraphic" in2="BackgroundImageFix" result="shape"/><feGaussianBlur result="effect1_foregroundBlur_2002_17158" stdDeviation="7.659"/></filter><filter id="d" width="79.355" height="29.4" x="-49.64" y="2.03" color-interpolation-filters="sRGB" filterUnits="userSpaceOnUse"><feFlood flood-opacity="0" result="BackgroundImageFix"/><feBlend in="SourceGraphic" in2="BackgroundImageFix" result="shape"/><feGaussianBlur result="effect1_foregroundBlur_2002_17158" stdDeviation="4.596"/></filter><filter id="e" width="79.579" height="29.4" x="-45.045" y="20.029" color-interpolation-filters="sRGB" filterUnits="userSpaceOnUse"><feFlood flood-opacity="0" result="BackgroundImageFix"/><feBlend in="SourceGraphic" in2="BackgroundImageFix" result="shape"/><feGaussianBlur result="effect1_foregroundBlur_2002_17158" stdDeviation="4.596"/></filter><filter id="f" width="79.579" height="29.4" x="-43.513" y="21.178" color-interpolation-filters="sRGB" filterUnits="userSpaceOnUse"><feFlood flood-opacity="0" result="BackgroundImageFix"/><feBlend in="SourceGraphic" in2="BackgroundImageFix" result="shape"/><feGaussianBlur result="effect1_foregroundBlur_2002_17158" stdDeviation="4.596"/></filter><filter id="g" width="74.749" height="58.852" x="15.756" y="-17.901" color-interpolation-filters="sRGB" filterUnits="userSpaceOnUse"><feFlood flood-opacity="0" result="BackgroundImageFix"/><feBlend in="SourceGraphic" in2="BackgroundImageFix" result="shape"/><feGaussianBlur result="effect1_foregroundBlur_2002_17158" stdDeviation="7.659"/></filter><filter id="h" width="61.377" height="25.362" x="23.548" y="2.284" color-interpolation-filters="sRGB" filterUnits="userSpaceOnUse"><feFlood flood-opacity="0" result="BackgroundImageFix"/><feBlend in="SourceGraphic" in2="BackgroundImageFix" result="shape"/><feGaussianBlur result="effect1_foregroundBlur_2002_17158" stdDeviation="4.596"/></filter><filter id="i" width="61.377" height="25.362" x="23.548" y="2.284" color-interpolation-filters="sRGB" filterUnits="userSpaceOnUse"><feFlood flood-opacity="0" result="BackgroundImageFix"/><feBlend in="SourceGraphic" in2="BackgroundImageFix" result="shape"/><feGaussianBlur result="effect1_foregroundBlur_2002_17158" stdDeviation="4.596"/></filter><filter id="j" width="56.045" height="63.649" x="-27.636" y="-22.853" color-interpolation-filters="sRGB" filterUnits="userSpaceOnUse"><feFlood flood-opacity="0" result="BackgroundImageFix"/><feBlend in="SourceGraphic" in2="BackgroundImageFix" result="shape"/><feGaussianBlur result="effect1_foregroundBlur_2002_17158" stdDeviation="4.596"/></filter><filter id="k" width="54.814" height="64.646" x="20.116" y="-38.415" color-interpolation-filters="sRGB" filterUnits="userSpaceOnUse"><feFlood flood-opacity="0" result="BackgroundImageFix"/><feBlend in="SourceGraphic" in2="BackgroundImageFix" result="shape"/><feGaussianBlur result="effect1_foregroundBlur_2002_17158" stdDeviation="4.596"/></filter><filter id="l" width="33.541" height="35.313" x="24.641" y="-11.323" color-interpolation-filters="sRGB" filterUnits="userSpaceOnUse"><feFlood flood-opacity="0" result="BackgroundImageFix"/><feBlend in="SourceGraphic" in2="BackgroundImageFix" result="shape"/><feGaussianBlur result="effect1_foregroundBlur_2002_17158" stdDeviation="4.596"/></filter><filter id="m" width="54.814" height="64.646" x="-29.286" y="6.009" color-interpolation-filters="sRGB" filterUnits="userSpaceOnUse"><feFlood flood-opacity="0" result="BackgroundImageFix"/><feBlend in="SourceGraphic" in2="BackgroundImageFix" result="shape"/><feGaussianBlur result="effect1_foregroundBlur_2002_17158" stdDeviation="4.596"/></filter><filter id="n" width="54.814" height="64.646" x="-29.286" y="6.009" color-interpolation-filters="sRGB" filterUnits="userSpaceOnUse"><feFlood flood-opacity="0" result="BackgroundImageFix"/><feBlend in="SourceGraphic" in2="BackgroundImageFix" result="shape"/><feGaussianBlur result="effect1_foregroundBlur_2002_17158" stdDeviation="4.596"/></filter><filter id="o" width="54.814" height="64.646" x="8.244" y="-2.416" color-interpolation-filters="sRGB" filterUnits="userSpaceOnUse"><feFlood flood-opacity="0" result="BackgroundImageFix"/><feBlend in="SourceGraphic" in2="BackgroundImageFix" result="shape"/><feGaussianBlur result="effect1_foregroundBlur_2002_17158" stdDeviation="4.596"/></filter><filter id="p" width="39.409" height="43.623" x="18.713" y="10.588" color-interpolation-filters="sRGB" filterUnits="userSpaceOnUse"><feFlood flood-opacity="0" result="BackgroundImageFix"/><feBlend in="SourceGraphic" in2="BackgroundImageFix" result="shape"/><feGaussianBlur result="effect1_foregroundBlur_2002_17158" stdDeviation="4.596"/></filter></defs></svg>
+</file>
+
+<file path="client/public/icons.svg">
+<svg xmlns="http://www.w3.org/2000/svg">
+  <symbol id="bluesky-icon" viewBox="0 0 16 17">
+    <g clip-path="url(#bluesky-clip)"><path fill="#08060d" d="M7.75 7.735c-.693-1.348-2.58-3.86-4.334-5.097-1.68-1.187-2.32-.981-2.74-.79C.188 2.065.1 2.812.1 3.251s.241 3.602.398 4.13c.52 1.744 2.367 2.333 4.07 2.145-2.495.37-4.71 1.278-1.805 4.512 3.196 3.309 4.38-.71 4.987-2.746.608 2.036 1.307 5.91 4.93 2.746 2.72-2.746.747-4.143-1.747-4.512 1.702.189 3.55-.4 4.07-2.145.156-.528.397-3.691.397-4.13s-.088-1.186-.575-1.406c-.42-.19-1.06-.395-2.741.79-1.755 1.24-3.64 3.752-4.334 5.099"/></g>
+    <defs><clipPath id="bluesky-clip"><path fill="#fff" d="M.1.85h15.3v15.3H.1z"/></clipPath></defs>
+  </symbol>
+  <symbol id="discord-icon" viewBox="0 0 20 19">
+    <path fill="#08060d" d="M16.224 3.768a14.5 14.5 0 0 0-3.67-1.153c-.158.286-.343.67-.47.976a13.5 13.5 0 0 0-4.067 0c-.128-.306-.317-.69-.476-.976A14.4 14.4 0 0 0 3.868 3.77C1.546 7.28.916 10.703 1.231 14.077a14.7 14.7 0 0 0 4.5 2.306q.545-.748.965-1.587a9.5 9.5 0 0 1-1.518-.74q.191-.14.372-.293c2.927 1.369 6.107 1.369 8.999 0q.183.152.372.294-.723.437-1.52.74.418.838.963 1.588a14.6 14.6 0 0 0 4.504-2.308c.37-3.911-.63-7.302-2.644-10.309m-9.13 8.234c-.878 0-1.599-.82-1.599-1.82 0-.998.705-1.82 1.6-1.82.894 0 1.614.82 1.599 1.82.001 1-.705 1.82-1.6 1.82m5.91 0c-.878 0-1.599-.82-1.599-1.82 0-.998.705-1.82 1.6-1.82.893 0 1.614.82 1.599 1.82 0 1-.706 1.82-1.6 1.82"/>
+  </symbol>
+  <symbol id="documentation-icon" viewBox="0 0 21 20">
+    <path fill="none" stroke="#aa3bff" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.35" d="m15.5 13.333 1.533 1.322c.645.555.967.833.967 1.178s-.322.623-.967 1.179L15.5 18.333m-3.333-5-1.534 1.322c-.644.555-.966.833-.966 1.178s.322.623.966 1.179l1.534 1.321"/>
+    <path fill="none" stroke="#aa3bff" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.35" d="M17.167 10.836v-4.32c0-1.41 0-2.117-.224-2.68-.359-.906-1.118-1.621-2.08-1.96-.599-.21-1.349-.21-2.848-.21-2.623 0-3.935 0-4.983.369-1.684.591-3.013 1.842-3.641 3.428C3 6.449 3 7.684 3 10.154v2.122c0 2.558 0 3.838.706 4.726q.306.383.713.671c.76.536 1.79.64 3.581.66"/>
+    <path fill="none" stroke="#aa3bff" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.35" d="M3 10a2.78 2.78 0 0 1 2.778-2.778c.555 0 1.209.097 1.748-.047.48-.129.854-.503.982-.982.145-.54.048-1.194.048-1.749a2.78 2.78 0 0 1 2.777-2.777"/>
+  </symbol>
+  <symbol id="github-icon" viewBox="0 0 19 19">
+    <path fill="#08060d" fill-rule="evenodd" d="M9.356 1.85C5.05 1.85 1.57 5.356 1.57 9.694a7.84 7.84 0 0 0 5.324 7.44c.387.079.528-.168.528-.376 0-.182-.013-.805-.013-1.454-2.165.467-2.616-.935-2.616-.935-.349-.91-.864-1.143-.864-1.143-.71-.48.051-.48.051-.48.787.051 1.2.805 1.2.805.695 1.194 1.817.857 2.268.649.064-.507.27-.857.49-1.052-1.728-.182-3.545-.857-3.545-3.87 0-.857.31-1.558.8-2.104-.078-.195-.349-1 .077-2.078 0 0 .657-.208 2.14.805a7.5 7.5 0 0 1 1.946-.26c.657 0 1.328.092 1.946.26 1.483-1.013 2.14-.805 2.14-.805.426 1.078.155 1.883.078 2.078.502.546.799 1.247.799 2.104 0 3.013-1.818 3.675-3.558 3.87.284.247.528.714.528 1.454 0 1.052-.012 1.896-.012 2.156 0 .208.142.455.528.377a7.84 7.84 0 0 0 5.324-7.441c.013-4.338-3.48-7.844-7.773-7.844" clip-rule="evenodd"/>
+  </symbol>
+  <symbol id="social-icon" viewBox="0 0 20 20">
+    <path fill="none" stroke="#aa3bff" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.35" d="M12.5 6.667a4.167 4.167 0 1 0-8.334 0 4.167 4.167 0 0 0 8.334 0"/>
+    <path fill="none" stroke="#aa3bff" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.35" d="M2.5 16.667a5.833 5.833 0 0 1 8.75-5.053m3.837.474.513 1.035c.07.144.257.282.414.309l.93.155c.596.1.736.536.307.965l-.723.73a.64.64 0 0 0-.152.531l.207.903c.164.715-.213.991-.84.618l-.872-.52a.63.63 0 0 0-.577 0l-.872.52c-.624.373-1.003.094-.84-.618l.207-.903a.64.64 0 0 0-.152-.532l-.723-.729c-.426-.43-.289-.864.306-.964l.93-.156a.64.64 0 0 0 .412-.31l.513-1.034c.28-.562.735-.562 1.012 0"/>
+  </symbol>
+  <symbol id="x-icon" viewBox="0 0 19 19">
+    <path fill="#08060d" fill-rule="evenodd" d="M1.893 1.98c.052.072 1.245 1.769 2.653 3.77l2.892 4.114c.183.261.333.48.333.486s-.068.089-.152.183l-.522.593-.765.867-3.597 4.087c-.375.426-.734.834-.798.905a1 1 0 0 0-.118.148c0 .01.236.017.664.017h.663l.729-.83c.4-.457.796-.906.879-.999a692 692 0 0 0 1.794-2.038c.034-.037.301-.34.594-.675l.551-.624.345-.392a7 7 0 0 1 .34-.374c.006 0 .93 1.306 2.052 2.903l2.084 2.965.045.063h2.275c1.87 0 2.273-.003 2.266-.021-.008-.02-1.098-1.572-3.894-5.547-2.013-2.862-2.28-3.246-2.273-3.266.008-.019.282-.332 2.085-2.38l2-2.274 1.567-1.782c.022-.028-.016-.03-.65-.03h-.674l-.3.342a871 871 0 0 1-1.782 2.025c-.067.075-.405.458-.75.852a100 100 0 0 1-.803.91c-.148.172-.299.344-.99 1.127-.304.343-.32.358-.345.327-.015-.019-.904-1.282-1.976-2.808L6.365 1.85H1.8zm1.782.91 8.078 11.294c.772 1.08 1.413 1.973 1.425 1.984.016.017.241.02 1.05.017l1.03-.004-2.694-3.766L7.796 5.75 5.722 2.852l-1.039-.004-1.039-.004z" clip-rule="evenodd"/>
+  </symbol>
+</svg>
+</file>
+
+<file path="client/README.md">
+# React + Vite
+
+This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+
+Currently, two official plugins are available:
+
+- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
+- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+
+## React Compiler
+
+The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+
+## Expanding the ESLint configuration
+
+If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+</file>
+
+<file path="client/src/App.jsx">
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { useSelector } from "react-redux";
+import Navbar from "./components/Navbar";
+import ProtectedRoute from "./components/ProtectedRoute";
+import LoginPage from "./pages/LoginPage";
+import RegisterPage from "./pages/RegisterPage";
+import FeedPage from "./pages/FeedPage";
+import ProfilePage from "./pages/ProfilePage";
+
+export default function App() {
+  const token = useSelector((s) => s.auth.token);
+
+  return (
+    <BrowserRouter>
+      {token && <Navbar />}
+      <main className={token ? "main-with-nav" : ""}>
+        <Routes>
+          <Route path="/login" element={token ? <Navigate to="/" /> : <LoginPage />} />
+          <Route path="/register" element={token ? <Navigate to="/" /> : <RegisterPage />} />
+          <Route
+            path="/"
+            element={
+              <ProtectedRoute>
+                <FeedPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/explore"
+            element={
+              <ProtectedRoute>
+                <FeedPage explore />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/profile/:id"
+            element={
+              <ProtectedRoute>
+                <ProfilePage />
+              </ProtectedRoute>
+            }
+          />
+          <Route path="*" element={<Navigate to="/" />} />
+        </Routes>
+      </main>
+    </BrowserRouter>
+  );
+}
+</file>
+
+<file path="client/src/index.css">
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg: #f0f2f5;
+  --surface: #ffffff;
+  --border: #dde0e4;
+  --text: #1a1a1a;
+  --text-muted: #60636a;
+  --primary: #1877f2;
+  --primary-hover: #145dbf;
+  --danger: #e53935;
+  --radius: 12px;
+  --radius-sm: 8px;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-size: 15px;
+  line-height: 1.5;
+  color: var(--text);
+  background: var(--bg);
+}
+
+a { color: inherit; }
+
+/* ── Navbar ────────────────────────────────────── */
+.navbar {
+  position: sticky; top: 0; z-index: 100;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+}
+.navbar-inner {
+  max-width: 680px; margin: 0 auto; padding: 0 16px;
+  height: 56px; display: flex; align-items: center; gap: 16px;
+}
+.navbar-logo {
+  font-weight: 800; font-size: 20px; text-decoration: none; color: var(--primary);
+  margin-right: 8px;
+}
+.navbar-links { display: flex; gap: 16px; flex: 1; }
+.navbar-links a {
+  text-decoration: none; color: var(--text-muted); font-size: 15px; font-weight: 500;
+  padding: 4px 8px; border-radius: 6px;
+}
+.navbar-links a:hover { color: var(--text); background: var(--bg); }
+
+/* ── Layout ────────────────────────────────────── */
+.main-with-nav { padding-top: 20px; }
+
+/* ── Card ──────────────────────────────────────── */
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px;
+}
+
+/* ── Buttons ───────────────────────────────────── */
+.btn-primary {
+  background: var(--primary); color: #fff; border: none;
+  padding: 8px 20px; border-radius: 20px; cursor: pointer;
+  font-size: 14px; font-weight: 600; font-family: inherit;
+  transition: background 0.15s;
+}
+.btn-primary:hover:not(:disabled) { background: var(--primary-hover); }
+.btn-primary:disabled { opacity: 0.55; cursor: not-allowed; }
+.btn-primary.full { width: 100%; padding: 12px; font-size: 15px; border-radius: var(--radius-sm); }
+.btn-primary.sm { padding: 5px 14px; font-size: 13px; }
+.btn-primary.outlined {
+  background: transparent; color: var(--primary);
+  border: 1.5px solid var(--primary);
+}
+.btn-primary.outlined:hover { background: #e8f0fd; }
+
+.btn-ghost {
+  background: none; border: none; cursor: pointer; color: var(--text-muted);
+  padding: 6px 10px; border-radius: 20px; font-size: 14px; font-family: inherit;
+}
+.btn-ghost:hover { background: var(--bg); color: var(--text); }
+.btn-ghost.liked { color: var(--danger); }
+
+/* ── Inputs ────────────────────────────────────── */
+input, textarea {
+  width: 100%; padding: 10px 12px;
+  border: 1px solid var(--border); border-radius: var(--radius-sm);
+  font-size: 15px; font-family: inherit; color: var(--text);
+  background: var(--surface); outline: none;
+  transition: border-color 0.15s;
+}
+input:focus, textarea:focus { border-color: var(--primary); }
+textarea { resize: vertical; min-height: 80px; }
+
+/* ── Auth pages ────────────────────────────────── */
+.auth-page {
+  min-height: 100vh; display: flex; align-items: center;
+  justify-content: center; background: var(--bg);
+}
+.auth-card {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 36px 32px;
+  width: 100%; max-width: 400px;
+}
+.auth-card h1 { font-size: 28px; color: var(--primary); margin-bottom: 2px; }
+.auth-card h2 {
+  color: var(--text-muted); font-size: 17px; font-weight: 400; margin-bottom: 24px;
+}
+.auth-card form { display: flex; flex-direction: column; gap: 12px; }
+.auth-card p { margin-top: 18px; color: var(--text-muted); font-size: 14px; text-align: center; }
+.auth-card a { color: var(--primary); text-decoration: none; font-weight: 600; }
+
+/* ── Feed ──────────────────────────────────────── */
+.feed-page { max-width: 640px; margin: 0 auto; padding: 0 16px 48px; }
+.feed-container { display: flex; flex-direction: column; gap: 12px; }
+
+/* ── Create Post ───────────────────────────────── */
+.create-post textarea { margin-bottom: 10px; }
+.create-post-footer { display: flex; align-items: center; gap: 10px; }
+.file-label { color: var(--primary); cursor: pointer; font-size: 14px; font-weight: 500; }
+.file-name {
+  font-size: 13px; color: var(--text-muted); flex: 1;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.create-post-footer .btn-primary { margin-left: auto; }
+
+/* ── Post Card ─────────────────────────────────── */
+.post-header { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+.post-author {
+  display: flex; align-items: center; gap: 8px;
+  text-decoration: none; color: var(--text); flex: 1;
+}
+.post-author:hover .username { text-decoration: underline; }
+.username { font-weight: 700; font-size: 14px; }
+.post-date { font-size: 12px; color: var(--text-muted); }
+.delete-btn { color: var(--text-muted); font-size: 13px; }
+.post-content { font-size: 15px; line-height: 1.55; margin-bottom: 10px; }
+.post-image {
+  width: 100%; border-radius: var(--radius-sm); margin: 8px 0;
+  max-height: 480px; object-fit: cover; display: block;
+}
+.post-actions {
+  display: flex; gap: 4px;
+  border-top: 1px solid var(--border); padding-top: 8px; margin-top: 8px;
+}
+
+/* ── Comments ──────────────────────────────────── */
+.comments {
+  border-top: 1px solid var(--border); padding-top: 10px;
+  margin-top: 8px; display: flex; flex-direction: column; gap: 6px;
+}
+.comment { font-size: 14px; display: flex; gap: 6px; align-items: baseline; }
+.comment-author {
+  font-weight: 700; color: var(--text); text-decoration: none; white-space: nowrap;
+}
+.comment-author:hover { text-decoration: underline; }
+.comment-form { display: flex; gap: 8px; margin-top: 4px; }
+.comment-form input { flex: 1; padding: 7px 10px; font-size: 13px; }
+
+/* ── Avatars ───────────────────────────────────── */
+.avatar-sm { width: 36px; height: 36px; border-radius: 50%; object-fit: cover; flex-shrink: 0; }
+.avatar-lg { width: 80px; height: 80px; border-radius: 50%; object-fit: cover; flex-shrink: 0; }
+.avatar-placeholder {
+  display: flex; align-items: center; justify-content: center;
+  background: var(--primary); color: #fff; font-weight: 700; flex-shrink: 0;
+}
+.avatar-sm.avatar-placeholder { font-size: 15px; border-radius: 50%; }
+.avatar-lg.avatar-placeholder { font-size: 30px; border-radius: 50%; }
+
+/* ── Profile ───────────────────────────────────── */
+.profile-page { max-width: 640px; margin: 0 auto; padding: 16px 16px 48px; }
+.profile-header { display: flex; gap: 24px; align-items: flex-start; margin-bottom: 16px; }
+.profile-info { flex: 1; }
+.profile-info h2 { font-size: 22px; font-weight: 800; margin-bottom: 6px; }
+.bio { color: var(--text-muted); font-size: 14px; margin-bottom: 12px; }
+.profile-stats { display: flex; gap: 20px; font-size: 14px; margin-bottom: 14px; color: var(--text-muted); }
+.profile-stats strong { color: var(--text); }
+.edit-form textarea { margin-bottom: 8px; }
+.edit-actions { display: flex; gap: 8px; }
+
+/* ── Utilities ─────────────────────────────────── */
+.error-msg {
+  background: #fff0f0; border: 1px solid #ffc9c9;
+  color: var(--danger); padding: 10px 14px;
+  border-radius: var(--radius-sm); font-size: 14px;
+}
+.loading { text-align: center; padding: 48px; color: var(--text-muted); }
+.empty-state { text-align: center; padding: 48px; color: var(--text-muted); font-size: 15px; }
+</file>
+
+<file path="client/src/main.jsx">
+import { StrictMode } from "react";
+import { createRoot } from "react-dom/client";
+import { Provider } from "react-redux";
+import { store } from "./store";
+import "./index.css";
+import App from "./App.jsx";
+
+createRoot(document.getElementById("root")).render(
+  <StrictMode>
+    <Provider store={store}>
+      <App />
+    </Provider>
+  </StrictMode>
+);
+</file>
+
+<file path="client/vite.config.js">
+import { defineConfig } from "vite";
+import react from "@vitejs/plugin-react";
+
+export default defineConfig({
+  plugins: [react()],
+  server: {
+    proxy: {
+      "/api": "http://localhost:5000",
+      "/uploads": "http://localhost:5000",
+    },
+  },
+});
+</file>
+
+<file path="package.json">
+{
+  "name": "social-media-platform",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "dev": "concurrently \"npm run dev --prefix client\" \"npm run dev --prefix server\""
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "devDependencies": {
+    "concurrently": "^9.2.1"
+  }
+}
+</file>
+
+<file path="server/.gitignore">
+# Dependencies
+node_modules/
+
+# Environment variables (VERY important for Express apps)
+.env
+*.env
+
+# Logs (Express apps often generate these)
+logs/
+*.log
+npm-debug.log*
+
+# Runtime / temp files
+pids/
+*.pid
+*.pid.lock
+
+# Uploads (if you use multer or similar)
+uploads/
+
+# Build output (only if you add TypeScript later)
+dist/
+build/
+
+# Test coverage
+coverage/
+
+# Cache
+.cache/
+
+# OS / editor junk
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+</file>
+
+<file path="server/package.json">
+{
+  "name": "server",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "dev": "nodemon server.js",
+    "start": "node server.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "module",
+  "dependencies": {
+    "bcryptjs": "^3.0.3",
+    "cors": "^2.8.6",
+    "dotenv": "^17.4.2",
+    "express": "^5.2.1",
+    "jsonwebtoken": "^9.0.3",
+    "mongoose": "^9.5.0",
+    "multer": "^2.1.1",
+    "nodemailer": "^8.0.7"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.14"
+  }
+}
+</file>
+
+<file path="server/src/config/db.js">
+import mongoose from "mongoose";
+
+const connectDB = async () => {
+  try {
+    const conn = await mongoose.connect(process.env.MONGO_URI);
+    console.log(`MongoDB connected: ${conn.connection.host}`);
+  } catch (error) {
+    console.error(`MongoDB connection error: ${error.message}`);
+    process.exit(1);
+  }
+};
+
+export default connectDB;
+</file>
+
+<file path="server/src/middlewares/authMiddleware.js">
+import jwt from "jsonwebtoken";
+import User from "../models/User.js";
+
+const protect = async (req, res, next) => {
+  try {
+    const authHeader = req.headers.authorization;
+
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+      return res.status(401).json({ message: "Not authorized, no token" });
+    }
+
+    const token = authHeader.split(" ")[1];
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+
+    req.user = await User.findById(decoded.id).select("-password");
+
+    if (!req.user) {
+      return res.status(401).json({ message: "User not found" });
+    }
+
+    next();
+  } catch (error) {
+    res.status(401).json({ message: "Not authorized, token failed" });
+  }
+};
+
+export default protect;
+</file>
+
+<file path="server/src/models/User.js">
+import mongoose from "mongoose";
+import bcrypt from "bcryptjs";
+
+const userSchema = new mongoose.Schema(
+  {
+    username: {
+      type: String,
+      required: true,
+      unique: true,
+      trim: true,
+    },
+    email: {
+      type: String,
+      required: true,
+      unique: true,
+      lowercase: true,
+      trim: true,
+    },
+    password: {
+      type: String,
+      required: true,
+      minlength: 6,
+    },
+    profilePicture: {
+      type: String,
+      default: "",
+    },
+    bio: {
+      type: String,
+      default: "",
+    },
+    followers: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
+    following: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
+  },
+  { timestamps: true },
+);
+
+userSchema.pre("save", async function () {
+  if (!this.isModified("password")) return;
+  const salt = await bcrypt.genSalt(10);
+  this.password = await bcrypt.hash(this.password, salt);
+});
+
+userSchema.methods.comparePassword = async function (candidatePassword) {
+  return await bcrypt.compare(candidatePassword, this.password);
+};
+
+const User = mongoose.model("User", userSchema);
+
+export default User;
+</file>
+
+<file path="server/src/routes/authRoutes.js">
+import express from "express";
+import User from "../models/User.js";
+import * as TokenGenerator from "./TokenGenerator.js";
+
+const router = express.Router();
+
+const safeUser = (user) => ({
+  _id: user._id,
+  username: user.username,
+  email: user.email,
+  profilePicture: user.profilePicture,
+  bio: user.bio,
+  followers: user.followers,
+  following: user.following,
+});
+
+// POST /api/auth/register
+router.post("/register", async (req, res) => {
+  try {
+    const { username, email, password } = req.body;
+    if (!username || !email || !password)
+      return res.status(400).json({ message: "All fields are required" });
+    const exists = await User.findOne({ $or: [{ email }, { username }] });
+    if (exists) return res.status(400).json({ message: "Email or username already in use" });
+    const user = await new User({ username, email, password }).save();
+    const token = TokenGenerator.generateToken(user);
+    res.status(201).json({ token, user: safeUser(user) });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+// POST /api/auth/login
+router.post("/login", async (req, res) => {
+  try {
+    const { email, password } = req.body;
+    const user = await User.findOne({ email });
+    if (!user) return res.status(400).json({ message: "Invalid credentials" });
+    const match = await user.comparePassword(password);
+    if (!match) return res.status(400).json({ message: "Invalid credentials" });
+    const token = TokenGenerator.generateToken(user);
+    res.json({ token, user: safeUser(user) });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+export default router;
+</file>
+
+<file path="server/src/routes/TokenGenerator.js">
+import jwt from "jsonwebtoken";
+
+const generateToken = (user) => {
+  return jwt.sign({ id: user._id }, process.env.JWT_SECRET, {
+    expiresIn: process.env.JWT_EXPIRES_IN,
+  });
+};
+
+
+
+export { generateToken };
+</file>
+
+<file path="server/server.js">
+import express from "express";
+import cors from "cors";
+import dotenv from "dotenv";
+import path from "path";
+import { fileURLToPath } from "url";
+import connectDB from "./src/config/db.js";
+import authRouter from "./src/routes/authRoutes.js";
+import postRouter from "./src/routes/postRoutes.js";
+import userRouter from "./src/routes/userRoutes.js";
+
+dotenv.config();
+connectDB();
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+const app = express();
+
+app.use(cors({ origin: "http://localhost:5173" }));
+app.use(express.json());
+
+// Serve uploaded images
+app.use("/uploads", express.static(path.join(__dirname, "uploads")));
+
+// Routes
+app.use("/api/auth", authRouter);
+app.use("/api/posts", postRouter);
+app.use("/api/users", userRouter);
+
+app.get("/", (req, res) => res.json({ message: "Server is running" }));
+
+const PORT = process.env.PORT || 5000;
+app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+</file>
+
+</files>
