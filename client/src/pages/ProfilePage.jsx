@@ -15,6 +15,7 @@ export default function ProfilePage() {
   const [following, setFollowing] = useState(false);
   const [editing, setEditing] = useState(false);
   const [bio, setBio] = useState("");
+  const [file, setFile] = useState(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
@@ -52,13 +53,20 @@ export default function ProfilePage() {
     }));
   };
 
-  const handleSaveBio = async () => {
+  const handleSaveProfile = async () => {
     setSaving(true);
     try {
-      const { data } = await api.put("/users/profile", { bio });
+      const formData = new FormData();
+      formData.append("bio", bio);
+      if (file) formData.append("profilePicture", file);
+      
+      const { data } = await api.put("/users/profile", formData, {
+        headers: { "Content-Type": "multipart/form-data" }
+      });
       dispatch(updateUser(data));
       setProfile(data);
       setEditing(false);
+      setFile(null);
     } catch (e) {
       console.error(e);
     }
@@ -76,7 +84,16 @@ export default function ProfilePage() {
           <h2>{profile.username}</h2>
 
           {editing ? (
-            <div className="edit-form">
+            <div className="edit-form" style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              <div>
+                <label style={{ fontSize: '13px', color: 'var(--text-muted)' }}>Profile Picture</label>
+                <input 
+                  type="file" 
+                  accept="image/*"
+                  onChange={(e) => setFile(e.target.files[0])}
+                  style={{ padding: '8px' }}
+                />
+              </div>
               <textarea
                 value={bio}
                 onChange={(e) => setBio(e.target.value)}
@@ -85,10 +102,10 @@ export default function ProfilePage() {
                 placeholder="Write a bio…"
               />
               <div className="edit-actions">
-                <button className="btn-primary sm" onClick={handleSaveBio} disabled={saving}>
+                <button className="btn-primary sm" onClick={handleSaveProfile} disabled={saving}>
                   {saving ? "Saving…" : "Save"}
                 </button>
-                <button className="btn-ghost sm" onClick={() => setEditing(false)}>
+                <button className="btn-ghost sm" onClick={() => { setEditing(false); setFile(null); }}>
                   Cancel
                 </button>
               </div>
