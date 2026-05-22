@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { Link } from "react-router-dom";
 import { toggleLike, addComment, deletePost } from "../store/slices/postSlice";
@@ -9,14 +9,38 @@ export default function PostCard({ post }) {
   const [comment, setComment] = useState("");
   const [showComments, setShowComments] = useState(false);
 
-  const liked = post.likes.some((id) => id === user?._id || id?._id === user?._id);
+  // Use local state to allow UI updates even when the post isn't in Redux (e.g. SearchResults)
+  const [localLikes, setLocalLikes] = useState(post.likes);
+  const [localComments, setLocalComments] = useState(post.comments);
+
+  // Keep local state in sync if the prop changes
+  useEffect(() => {
+    setLocalLikes(post.likes);
+    setLocalComments(post.comments);
+  }, [post.likes, post.comments]);
+
+  const liked = localLikes.some((id) => id === user?._id || id?._id === user?._id);
   const isAuthor = post.author?._id === user?._id;
+
+  const handleLike = async () => {
+    try {
+      const res = await dispatch(toggleLike(post._id)).unwrap();
+      setLocalLikes(res.likes);
+    } catch (err) {
+      console.error(err);
+    }
+  };
 
   const handleComment = async (e) => {
     e.preventDefault();
     if (!comment.trim()) return;
-    await dispatch(addComment({ postId: post._id, text: comment }));
-    setComment("");
+    try {
+      const res = await dispatch(addComment({ postId: post._id, text: comment })).unwrap();
+      setLocalComments((prev) => [...prev, res.comment]);
+      setComment("");
+    } catch (err) {
+      console.error(err);
+    }
   };
 
   return (
@@ -52,18 +76,18 @@ export default function PostCard({ post }) {
       <div className="post-actions">
         <button
           className={`btn-ghost ${liked ? "liked" : ""}`}
-          onClick={() => dispatch(toggleLike(post._id))}
+          onClick={handleLike}
         >
-          {liked ? "❤️" : "🤍"} {post.likes.length}
+          {liked ? "❤️" : "🤍"} {localLikes.length}
         </button>
         <button className="btn-ghost" onClick={() => setShowComments((v) => !v)}>
-          💬 {post.comments.length}
+          💬 {localComments.length}
         </button>
       </div>
 
       {showComments && (
         <div className="comments">
-          {post.comments.map((c, i) => (
+          {localComments.map((c, i) => (
             <div key={i} className="comment">
               <Link to={`/profile/${c.user?._id}`} className="comment-author">
                 {c.user?.username}

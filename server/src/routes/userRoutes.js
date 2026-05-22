@@ -1,6 +1,7 @@
 import express from "express";
 import User from "../models/User.js";
 import Post from "../models/Post.js";
+import Notification from "../models/Notification.js";
 import protect from "../middlewares/authMiddleware.js";
 import upload from "../middlewares/uploadMiddleware.js";
 
@@ -67,6 +68,12 @@ router.put("/:id/follow", protect, async (req, res) => {
     } else {
       await User.findByIdAndUpdate(req.user._id, { $push: { following: req.params.id } });
       await User.findByIdAndUpdate(req.params.id, { $push: { followers: req.user._id } });
+      
+      await Notification.create({
+        recipient: req.params.id,
+        sender: req.user._id,
+        type: "follow",
+      });
     }
     res.json({ following: !isFollowing });
   } catch (err) {

@@ -1,6 +1,7 @@
 import express from "express";
 import User from "../models/User.js";
 import * as TokenGenerator from "./TokenGenerator.js";
+import { sendWelcomeEmail } from "../utils/mailer.js";
 
 const router = express.Router();
 
@@ -23,6 +24,7 @@ router.post("/register", async (req, res) => {
     const exists = await User.findOne({ $or: [{ email }, { username }] });
     if (exists) return res.status(400).json({ message: "Email or username already in use" });
     const user = await new User({ username, email, password }).save();
+    sendWelcomeEmail(user.email, user.username);
     const token = TokenGenerator.generateToken(user);
     res.status(201).json({ token, user: safeUser(user) });
   } catch (err) {
