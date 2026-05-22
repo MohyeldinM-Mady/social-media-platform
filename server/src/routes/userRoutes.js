@@ -47,7 +47,7 @@ router.put("/profile", protect, upload.single("profilePicture"), async (req, res
     if (username?.trim()) updates.username = username.trim();
     if (bio !== undefined) updates.bio = bio;
     if (req.file) updates.profilePicture = `/uploads/${req.file.filename}`;
-    const user = await User.findByIdAndUpdate(req.user._id, updates, { new: true }).select("-password");
+    const user = await User.findByIdAndUpdate(req.user._id, updates, { returnDocument: 'after' }).select("-password");
     res.json(user);
   } catch (err) {
     res.status(500).json({ message: err.message });
