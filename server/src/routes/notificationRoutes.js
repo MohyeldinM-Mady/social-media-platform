@@ -1,6 +1,7 @@
 import express from "express";
 import Notification from "../models/Notification.js";
 import protect from "../middlewares/authMiddleware.js";
+import { handleServerError } from "../utils/requestUtils.js";
 
 const router = express.Router();
 
@@ -13,7 +14,7 @@ router.get("/", protect, async (req, res) => {
       .populate("post", "content");
     res.json(notifications);
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    handleServerError(res, err, "Could not load notifications");
   }
 });
 
@@ -29,7 +30,7 @@ router.put("/:id/read", protect, async (req, res) => {
     await notification.save();
     res.json(notification);
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    handleServerError(res, err, "Could not update notification");
   }
 });
 
@@ -42,7 +43,7 @@ router.put("/read-all", protect, async (req, res) => {
     );
     res.json({ message: "All notifications marked as read" });
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    handleServerError(res, err, "Could not update notifications");
   }
 });
 
