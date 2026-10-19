@@ -1,6 +1,6 @@
 # Modern Social Media Platform
 
-A full-stack, responsive social media platform built with the MERN stack (MongoDB, Express.js, React, Node.js). This platform provides users with a comprehensive ecosystem to connect, share content, engage with posts, and receive real-time notifications, wrapped in a sleek, customizable user interface.
+A full-stack, responsive social media platform built with the MERN stack (MongoDB, Express.js, React, Node.js). This platform provides users with a comprehensive ecosystem to connect, share content, engage with posts, and view activity notifications, wrapped in a sleek, customizable user interface.
 
 ## ✨ Key Features
 
@@ -27,7 +27,8 @@ A full-stack, responsive social media platform built with the MERN stack (MongoD
 ### 🔔 Notifications Engine
 - Interactive Notification dropdown tracking engagement.
 - Automated triggers dispatch notifications when users like your posts, comment on your posts, or start following you.
-- Easily mark notifications as read or clear them all.
+- Mark individual notifications or all notifications as read.
+- The notification panel fetches on mount; live polling and WebSocket delivery are not implemented.
 
 ### 🎨 Theme & UI/UX
 - Aesthetic, dynamic, and responsive UI.
@@ -37,7 +38,7 @@ A full-stack, responsive social media platform built with the MERN stack (MongoD
 ## 🛠 Tech Stack
 
 ### Frontend
-- **Framework**: React 18 (bootstrapped with Vite)
+- **Framework**: React 19 (bootstrapped with Vite)
 - **State Management**: Redux Toolkit for complex global state, Context API for UI themes
 - **Routing**: React Router DOM
 - **Styling**: Vanilla CSS (Custom Variables/Themes) + React Bootstrap
@@ -79,10 +80,10 @@ SMTP_PASS=your_email_app_password
 From the project root directory, you can run the entire stack simultaneously:
 
 ```bash
-# Install dependencies for both server and client (if not already done)
-cd server && npm install
-cd ../client && npm install
-cd ..
+# Install the root runner, backend, and frontend dependencies
+npm ci
+npm ci --prefix server
+npm ci --prefix client
 
 # Run both the frontend and backend servers concurrently
 npm run dev
@@ -131,3 +132,18 @@ npm run dev
 - `GET /api/notifications` — Fetch user notifications
 - `PUT /api/notifications/:id/read` — Mark a notification as read
 - `PUT /api/notifications/read-all` — Mark all notifications as read
+
+## Validation and current scope
+
+The repository does not contain a tracked automated test suite. The client provides these checks after dependencies are installed:
+
+```bash
+npm run lint --prefix client
+npm run build --prefix client
+```
+
+These checks cover linting and production bundling, not end-to-end behavior. For a manual smoke test, use local test accounts to check registration/login, follow/unfollow, feeds, a post with an image, likes/comments, search, and notification read state. Welcome email delivery requires working SMTP credentials; mail failures are caught and logged by the mailer.
+
+The current implementation uses local API URLs and stores notifications for retrieval; it does not implement live notification delivery. No production deployment, load-test result, or measured user outcome is claimed here.
+
+Portfolio contact: [Mohyeldin M. Yakout](https://www.linkedin.com/in/mohyeldin-mady-yakout).
